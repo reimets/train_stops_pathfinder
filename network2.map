@@ -1,0 +1,12 @@
+stations:
+watford_junction  , 4 , 2
+charin_cross,7,8
+
+fenchurch_street,12,24
+kings_cross,6,16 # national
+
+
+connections:
+watford_junction -charin_cross
+charin_cross- fenchurch_street  
+fenchurch_street-kings_cross

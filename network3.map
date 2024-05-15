@@ -1,0 +1,17 @@
+stations:
+liverpool_street,2,7
+waterloo,8,2
+victoria,2,2
+euston,4,15
+london_bridge,15,10
+charin_cross,11,1
+
+connections:
+liverpool_street-victoria
+victoria-euston
+liverpool_street-waterloo
+waterloo-london_bridge
+waterloo-charin_cross
+liverpool_street-charin_cross
+charin_cross-euston
+euston-london_bridge

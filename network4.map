@@ -1,0 +1,10 @@
+stations:
+first,3,8
+second,9,3
+third,3,3
+forth,5,16
+connections:
+first-second
+first-forth
+second-third
+forth-third
