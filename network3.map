@@ -1,17 +1,16 @@
+# It can find more than one route for 2 trains between waterloo and 
+# st_pancras for the London Network Map
+
+# London Network Map
+
 stations:
-liverpool_street,2,7
-waterloo,8,2
-victoria,2,2
-euston,4,15
-london_bridge,15,10
-charin_cross,11,1
+waterloo,3,1
+victoria,6,7
+euston,11,23
+st_pancras,5,15
 
 connections:
-liverpool_street-victoria
-victoria-euston
-liverpool_street-waterloo
-waterloo-london_bridge
-waterloo-charin_cross
-liverpool_street-charin_cross
-charin_cross-euston
-euston-london_bridge
+waterloo-victoria
+waterloo-euston
+st_pancras-euston
+victoria-st_pancras

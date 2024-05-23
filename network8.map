@@ -1,3 +1,5 @@
+# It completes the movements in no more than 6 turns 
+# for 9 trains between beethoven and part
 stations:
 beethoven,1,6
 verdi,7,1

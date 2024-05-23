@@ -1,3 +1,5 @@
+# It completes the movements in no more than 8 turns 
+# for 10 trains between jungle and desert
 stations:
 jungle,5,16
 green_belt,6,1

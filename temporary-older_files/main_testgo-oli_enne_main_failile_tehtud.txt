@@ -1,0 +1,516 @@
+// to start the tests, in terminal: go test
+
+package main
+
+import (
+	"bytes"
+	"io"
+	"os"
+	"reflect"
+	"testing"
+)
+
+// testing when source and destination stations are the same in STDIN
+func TestExplorePaths_SameInputStations(t *testing.T) {
+	network := RailNetwork{
+		stations: map[string]*Location{
+			"part": {name: "part"},
+		},
+		links: map[string]map[string]bool{
+			"part": {},
+		},
+	}
+
+	_, err := network.ExplorePaths("part", "part")
+	if err == nil {
+		t.Fatalf("Test didn't pass. Expected error when source and destination stations are the same, got nil")
+	} else if err.Error() != "source and destination stations are the same" {
+		t.Fatalf("Test didn't pass. Expected 'source and destination stations are the same', got %s", err.Error())
+	}
+}
+
+// testing when source station inserted in STDIN does not exist in .map file
+func TestExplorePaths_InputSourceStationDoesNotExists(t *testing.T) {
+	network := RailNetwork{
+		stations: map[string]*Location{
+			"part": {name: "part"},
+		},
+		links: map[string]map[string]bool{
+			"part": {},
+		},
+	}
+
+	_, err := network.ExplorePaths("beethoveni", "part")
+	if err == nil {
+		t.Fatalf("Test didn't pass. Expected error when source station does not exist, got nil")
+	} else if err.Error() != "source station beethoveni does not exist" {
+		t.Fatalf("Test didn't pass. Expected 'source station beethoveni does not exist', got %s", err.Error())
+	}
+}
+
+// testing when destination station inserted in STDIN does not exist in .map file
+func TestExplorePaths_InputDestinationStationDoesNotExists(t *testing.T) {
+	network := RailNetwork{
+		stations: map[string]*Location{
+			"beethoven": {name: "beethoven"},
+		},
+		links: map[string]map[string]bool{
+			"beethoven": {},
+		},
+	}
+
+	_, err := network.ExplorePaths("beethoven", "parts")
+	if err == nil {
+		t.Fatalf("Test didn't pass. Expected error when destination station does not exist, got nil")
+	} else if err.Error() != "destination station parts does not exist" {
+		t.Fatalf("Test didn't pass. Expected 'destination station parts does not exist', got %s", err.Error())
+	}
+}
+
+// testing: no routes found from start to end
+func TestExplorePaths_NoRoutesBetweenSourceAndDestination(t *testing.T) {
+	network := RailNetwork{
+		stations: map[string]*Location{
+			"beethoven": {name: "beethoven"},
+			"part":      {name: "part"},
+		},
+		links: map[string]map[string]bool{
+			"beethoven": {},
+			"part":      {},
+		},
+	}
+
+	_, err := network.ExplorePaths("beethoven", "part")
+	if err == nil {
+		t.Fatalf("Test didn't pass. Expected an error for file where no routes found from start to end.")
+	} else if err.Error() != "no routes found from start to end" {
+		t.Fatalf("Test didn't pass. Expected 'no routes found from start to end' error, got: %v", err)
+	}
+}
+
+// Test if source and destination stations are connected directly
+func TestExplorePaths_DirectRoute(t *testing.T) {
+	network := RailNetwork{
+		stations: map[string]*Location{
+			"beethoven": {name: "beethoven"},
+			"part":      {name: "part"},
+		},
+		links: map[string]map[string]bool{
+			"beethoven": {"part": true},
+			"part":      {"beethoven": true},
+		},
+	}
+
+	routes, err := network.ExplorePaths("beethoven", "part")
+	if err != nil {
+		t.Fatalf("Test didn't pass. Unexpected error: %v", err)
+	}
+	if len(routes) != 1 {
+		t.Fatalf("Test didn't pass. Expected 1 route, got %d", len(routes))
+	}
+	expectedRoute := []string{"beethoven", "part"}
+	for i, station := range expectedRoute {
+		if routes[0][i] != station {
+			t.Fatalf("Test didn't pass. Expected route %v, got %v", expectedRoute, routes[0])
+		}
+	}
+}
+
+// Test if there are multiple routes between the source and destination stations
+func TestExplorePaths_MultipleRoutes(t *testing.T) {
+	network := RailNetwork{
+		stations: map[string]*Location{
+			"beethoven": {name: "beethoven"},
+			"part":      {name: "part"},
+			"mozart":    {name: "mozart"},
+		},
+		links: map[string]map[string]bool{
+			"beethoven": {"part": true, "mozart": true},
+			"part":      {"beethoven": true},
+			"mozart":    {"beethoven": true, "part": true},
+		},
+	}
+
+	routes, err := network.ExplorePaths("beethoven", "part")
+	if err != nil {
+		t.Fatalf("Test didn't pass. Unexpected error: %v", err)
+	}
+	if len(routes) != 2 {
+		t.Fatalf("Test didn't pass. Expected 2 routes, got %d", len(routes))
+	}
+}
+
+// Test if the route includes intermediate stations
+func TestExplorePaths_RouteWithIntermediateStations(t *testing.T) {
+	network := RailNetwork{
+		stations: map[string]*Location{
+			"beethoven": {name: "beethoven"},
+			"part":      {name: "part"},
+			"mozart":    {name: "mozart"},
+		},
+		links: map[string]map[string]bool{
+			"beethoven": {"mozart": true},
+			"mozart":    {"beethoven": true, "part": true},
+			"part":      {"mozart": true},
+		},
+	}
+
+	routes, err := network.ExplorePaths("beethoven", "part")
+	if err != nil {
+		t.Fatalf("Test didn't pass. Unexpected error: %v", err)
+	}
+	if len(routes) != 1 {
+		t.Fatalf("Test didn't pass. Expected 1 route, got %d", len(routes))
+	}
+	expectedRoute := []string{"beethoven", "mozart", "part"}
+	for i, station := range expectedRoute {
+		if routes[0][i] != station {
+			t.Fatalf("Test didn't pass. Expected route %v, got %v", expectedRoute, routes[0])
+		}
+	}
+}
+
+// testing Contains function
+func TestContains(t *testing.T) {
+	// Test: element in slice
+	slice := []string{"beethoven", "mozart", "bach"}
+	item := "mozart"
+	result := contains(slice, item)
+	if !result {
+		t.Fatalf("Test didn't pass. Expected true, got %v for item %v in slice %v", result, item, slice)
+	}
+
+	// test: element is not in slice
+	item = "verdi"
+	result = contains(slice, item)
+	if result {
+		t.Fatalf("Test didn't pass. Expected false, got %v for item %v in slice %v", result, item, slice)
+	}
+
+	// Test: empty slice
+	slice = []string{}
+	item = "beethoven"
+	result = contains(slice, item)
+	if result {
+		t.Fatalf("Test didn't pass. Expected false, got %v for item %v in slice %v", result, item, slice)
+	}
+
+	// test: A slice contains the same element multiple times
+	slice = []string{"beethoven", "mozart", "mozart", "bach"}
+	item = "mozart"
+	result = contains(slice, item)
+	if !result {
+		t.Fatalf("Test didn't pass. Expected true, got %v for item %v in slice %v", result, item, slice)
+	}
+}
+
+// testing file where two stations are with same name - albinoni
+func TestLoadNetworkMap_StationIsMissing(t *testing.T) {
+	filePath := "network_err1-1.map"
+	_, err := LoadNetworkMap(filePath)
+	if err == nil {
+		t.Fatalf("Test didn't pass. Expected an error for file where two stations are with same name.")
+	} else if err.Error() != "station list has two stations with same name: albinoni" {
+		t.Fatalf("Test didn't pass. Expected 'station list has two stations with same name' error, got: %v", err)
+	}
+}
+
+// testing: no handel station in stations list
+
+func TestLoadNetworkMap_StationsWithSameName(t *testing.T) {
+	filePath := "network_err1.map"
+	_, err := LoadNetworkMap(filePath)
+	if err == nil {
+		t.Fatalf("Test didn't pass. Expected an error for file where some station in stations list is missing.")
+	} else if err.Error() != "station handel does not exist" {
+		t.Fatalf("Test didn't pass. Expected 'station handel does not exist' error, got: %v", err)
+	}
+}
+
+// testing where two or more stations have same coordinates
+func TestLoadNetworkMap_StationsWithSameCoordinates(t *testing.T) {
+	filePath := "network_err3.map"
+	_, err := LoadNetworkMap(filePath)
+	if err == nil {
+		t.Fatalf("Test didn't pass. Expected an error for file where two or more stations have same coordinates.")
+	} else if err.Error() != "two or more stations have same coordinates" {
+		t.Fatalf("Test didn't pass. Expected 'two or more stations have same coordinates' error, got: %v", err)
+	}
+}
+
+// testing file when one station has faulty coordinates: "handel,3"
+func TestLoadNetworkMap_InvalidStationFormat(t *testing.T) {
+	filePath := "network_err4.map"
+	_, err := LoadNetworkMap(filePath)
+	if err == nil {
+		t.Fatalf("Test didn't pass. Expected an error for file with invalid format.")
+	} else if err.Error() != "station handel does not have correct amount of coordinates" {
+		t.Fatalf("Test didn't pass. Expected 'station handel does not have correct amount of coordinates' error, got: %v", err)
+	}
+}
+
+// testing file where "stations:" row is missing
+func TestLoadNetworkMap_NoStatusRow(t *testing.T) {
+	filePath := "network_err5.map"
+	_, err := LoadNetworkMap(filePath)
+	if err == nil {
+		t.Fatalf("Test didn't pass. Expected an error for file with no 'stations:' row.")
+	} else if err.Error() != "'stations:' section does not exist" {
+		t.Fatalf("Test didn't pass. Expected ''stations:' section does not exist' error, got: %v", err)
+	}
+}
+
+// testing file where "connections:" row is missing
+func TestLoadNetworkMap_NoConnectionRow(t *testing.T) {
+	filePath := "network_err6.map"
+	_, err := LoadNetworkMap(filePath)
+	if err == nil {
+		t.Fatalf("Test didn't pass. Expected an error for file with no 'connections:' row.")
+	} else if err.Error() != "'connections:' section does not exist" {
+		t.Fatalf("Test didn't pass. Expected ''connections:' section does not exist' error, got: %v", err)
+	}
+}
+
+// testing file where duplicate connections exist between handel-mozart
+func TestLoadNetworkMap_DuplicateConnections(t *testing.T) {
+	filePath := "network_err7.map"
+	_, err := LoadNetworkMap(filePath)
+	if err == nil {
+		t.Fatalf("Test didn't pass. Expected an error for file where duplicate connections exist (between handel-mozart).")
+	} else if err.Error() != "duplicate connection between handel and mozart" {
+		t.Fatalf("Test didn't pass. Expected 'duplicate connection between handel and mozart' error, got: %v", err)
+	}
+}
+
+// testing empty file
+func TestLoadNetworkMap_EmptyFile(t *testing.T) {
+	filePath := "network_err8.map"
+	_, err := LoadNetworkMap(filePath)
+	if err == nil {
+		t.Fatalf("Test didn't pass. Function didn't return error for empty file.")
+	} else if err.Error() != "file is empty" {
+		t.Fatalf("Test didn't pass. Expected 'file is empty' error, got: %v", err)
+	}
+}
+
+// testing file where file has more than 10000 stations
+func TestLoadNetworkMap_TooLongMap(t *testing.T) {
+	filePath := "network_err9.map"
+	_, err := LoadNetworkMap(filePath)
+	if err == nil {
+		t.Fatalf("Test didn't pass. Expected an error for file where map contains more than 10000 stations.")
+	} else if err.Error() != "map contains more than 10000 stations" {
+		t.Fatalf("Test didn't pass. Expected 'map contains more than 10000 stations' error, got: %v", err)
+	}
+}
+
+// testing file where duplicate connections in reverse exist between handel-mozart
+func TestLoadNetworkMap_DuplicateConnectionsReverse(t *testing.T) {
+	filePath := "network_err10.map"
+	_, err := LoadNetworkMap(filePath)
+	if err == nil {
+		t.Fatalf("Test didn't pass. Expected an error for file where duplicate connections exist (between handel-mozart in revers).")
+	} else if err.Error() != "duplicate connection between mozart and handel" {
+		t.Fatalf("Test didn't pass. Expected 'duplicate connection between mozart and handel' error, got: %v", err)
+	}
+}
+
+// testing file when one station has faulty, negative, coordinates: "albinoni,1,-1"
+func TestLoadNetworkMap_InvalidStationCoordinates(t *testing.T) {
+	filePath := "network_err11.map"
+	_, err := LoadNetworkMap(filePath)
+	if err == nil {
+		t.Fatalf("Test didn't pass. Expected an error for file with negative station coordinate.")
+	} else if err.Error() != "station albinoni has invalid coordinate -1" {
+		t.Fatalf("Test didn't pass. Expected 'station albinoni has invalid coordinate -1' error, got: %v", err)
+	}
+}
+
+// testing file when one row in "connections:" section is faulty (only one station, no connections to another station)
+func TestLoadNetworkMap_InvalidConnectionRow(t *testing.T) {
+	filePath := "network_err12.map"
+	_, err := LoadNetworkMap(filePath)
+	if err == nil {
+		t.Fatalf("Test didn't pass. Expected an error for file where connections section has fault in 'handel' row: incorrect amount of stations in row.")
+	} else if err.Error() != "connections section has fault in 'handel' row: incorrect amount of stations in row" {
+		t.Fatalf("Test didn't pass. Expected 'connections section has fault in 'handel' row: incorrect amount of stations in row' error, got: %v", err)
+	}
+}
+
+// TestAddLocation tests AddLocation function
+func TestAddLocation(t *testing.T) {
+	network := &RailNetwork{
+		stations: make(map[string]*Location),
+		links:    make(map[string]map[string]bool),
+	}
+
+	// Test that the station is added to the network if it does not exist
+	network.AddLocation("beethoven")
+	if _, exists := network.stations["beethoven"]; !exists {
+		t.Fatalf("AddLocation failed to add new station 'beethoven'")
+	}
+	if _, exists := network.links["beethoven"]; !exists {
+		t.Fatalf("AddLocation failed to initialize links for new station 'beethoven'")
+	}
+
+	// Test that the station is not added again if it already exists
+	initialStationsCount := len(network.stations)
+	initialLinksCount := len(network.links)
+	network.AddLocation("beethoven")
+	if len(network.stations) != initialStationsCount {
+		t.Fatalf("AddLocation should not add station 'beethoven' again")
+	}
+	if len(network.links) != initialLinksCount {
+		t.Fatalf("AddLocation should not initialize links for station 'beethoven' again")
+	}
+}
+
+// TestAddLink tests AddLink function
+func TestAddLink(t *testing.T) {
+	network := &RailNetwork{
+		stations: map[string]*Location{
+			"beethoven": {name: "beethoven"},
+			"mozart":    {name: "mozart"},
+		},
+		links: map[string]map[string]bool{
+			"beethoven": {},
+			"mozart":    {},
+		},
+	}
+
+	// Test that the connection is added successfully
+	err := network.AddLink("beethoven", "mozart")
+	if err != nil {
+		t.Fatalf("AddLink failed to add link: %v", err)
+	}
+	if !network.links["beethoven"]["mozart"] || !network.links["mozart"]["beethoven"] {
+		t.Fatalf("AddLink did not create a bidirectional link between beethoven and mozart")
+	}
+
+	// Test that the source station does not exist
+	err = network.AddLink("bach", "mozart")
+	if err == nil {
+		t.Fatalf("Expected an error for non-existent station 'bach'")
+	}
+	if err.Error() != "station bach does not exist" {
+		t.Fatalf("Expected error message 'station bach does not exist', got: %v", err)
+	}
+
+	// Test that the destination station does not exist
+	err = network.AddLink("beethoven", "bach")
+	if err == nil {
+		t.Fatalf("Expected an error for non-existent station 'bach'")
+	}
+	if err.Error() != "station bach does not exist" {
+		t.Fatalf("Expected error message 'station bach does not exist', got: %v", err)
+	}
+
+	// Test that the connection already exists
+	err = network.AddLink("beethoven", "mozart")
+	if err == nil {
+		t.Fatalf("Expected an error for duplicate connection between 'beethoven' and 'mozart'")
+	}
+	if err.Error() != "duplicate connection between beethoven and mozart" {
+		t.Fatalf("Expected error message 'duplicate connection between beethoven and mozart', got: %v", err)
+	}
+}
+
+func TestValidateRoutes(t *testing.T) {
+	// Test: one route
+	routes := [][]string{
+		{"start", "A", "end"},
+	}
+	expected := [][][]string{
+		{{"start", "A", "end"}},
+	}
+	result := ValidateRoutes(routes)
+	if !reflect.DeepEqual(result, expected) {
+		t.Fatalf("Test 1 failed. Expected %v, got %v", expected, result)
+	}
+
+	// Test Multiple routes that do not overlap
+	routes = [][]string{
+		{"start", "A", "end"},
+		{"start", "B", "end"},
+	}
+	expected = [][][]string{
+		{{"start", "A", "end"}, {"start", "B", "end"}},
+	}
+	result = ValidateRoutes(routes)
+	if !reflect.DeepEqual(result, expected) {
+		t.Fatalf("Test 2 failed. Expected %v, got %v", expected, result)
+	}
+
+	// Test: Multiple routes that overlap
+	routes = [][]string{
+		{"start", "A", "end"},
+		{"start", "A", "B", "end"},
+		{"start", "C", "end"},
+	}
+	expected = [][][]string{
+		{{"start", "A", "end"}, {"start", "C", "end"}},
+		{{"start", "C", "end"}, {"start", "A", "B", "end"}},
+	}
+	result = ValidateRoutes(routes)
+	if !reflect.DeepEqual(result, expected) {
+		t.Fatalf("Test 3 failed. Expected %v, got %v", expected, result)
+	}
+}
+func TestDisplaySchedule(t *testing.T) {
+	tests := []struct {
+		name        string
+		plan        routePlan
+		trainCount  int
+		expectedOut string
+	}{
+		{
+			name: "One train one route",
+			plan: routePlan{
+				lengths:           []int{1},
+				trainDistribution: []int{1},
+				routes:            [][]string{{"start", "A", "end"}},
+				totalTurns:        2,
+			},
+			trainCount:  1,
+			expectedOut: "T1-A \nT1-end \n",
+		},
+		{
+			name: "Multiple trains multiple routes",
+			plan: routePlan{
+				lengths:           []int{1, 1},
+				trainDistribution: []int{1, 1},
+				routes:            [][]string{{"start", "A", "end"}, {"start", "B", "end"}},
+				totalTurns:        2,
+			},
+			trainCount:  2,
+			expectedOut: "T1-A T2-B \nT1-end T2-end \n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Capture the output
+			r, w, _ := os.Pipe()
+			old := os.Stdout
+			os.Stdout = w
+
+			var buf bytes.Buffer
+			done := make(chan struct{})
+			go func() {
+				io.Copy(&buf, r)
+				close(done)
+			}()
+
+			DisplaySchedule(tt.plan, tt.trainCount)
+
+			w.Close()
+			os.Stdout = old
+			<-done
+
+			got := buf.String()
+			if got != tt.expectedOut {
+				t.Errorf("DisplaySchedule() = %v, want %v", got, tt.expectedOut)
+			}
+		})
+	}
+}

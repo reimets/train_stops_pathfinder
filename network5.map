@@ -1,3 +1,5 @@
+# It completes the movements in no more than 6 turns 
+# for 4 trains between two and four
 stations:
 one,1,1
 two,2,2

@@ -1,18 +1,20 @@
-# file with error (there is no connections between "beethoven" and "part" station)
+# file with error (two stations with same name - albinoni, but also with handel station)
 
 stations:
 beethoven,1,6
 verdi,7,1
 albinoni,1,1
 handel,3,14
+albinoni,2,2
 mozart,14,9
-strauss,22,33
 part,10,0
 
 connections:
-beethoven-strauss
+beethoven-handel
 handel-mozart
+beethoven-verdi
 verdi-part
 verdi-albinoni
+beethoven-albinoni
 albinoni-mozart
 mozart-part

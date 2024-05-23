@@ -1,3 +1,5 @@
+# It completes the movements in no more than 6 turns 
+# for 4 trains between bond_square and space_port
 stations:
 bond_square,20,6
 apple_avenue,7,7

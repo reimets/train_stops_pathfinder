@@ -1,9 +1,8 @@
-# file with error (two stations with same name - albinoni)
+# file with error (no handel station in stations list)
 
 stations:
 beethoven,1,6
 verdi,7,1
-albinoni,1,1
 albinoni,3,14
 mozart,14,9
 part,10,0

@@ -1,12 +1,15 @@
 stations:
-watford_junction  , 4 , 2
-charin_cross,7,8
+# south stations
+waterloo  , 3 , 1
+victoria,6,7
 
-fenchurch_street,12,24
-kings_cross,6,16 # national
+# north stations
+euston,11,23
+st_pancras,5,15 # international
 
 
 connections:
-watford_junction -charin_cross
-charin_cross- fenchurch_street  
-fenchurch_street-kings_cross
+waterloo -victoria
+waterloo- euston  
+st_pancras-euston
+victoria-st_pancras
